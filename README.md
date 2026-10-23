@@ -11,6 +11,28 @@
 
 不是又一个「学习通自动化脚本」。这里只有**查询**：不签到、不刷课、不答题、不代做作业。
 
+## 安装这个 Skill
+
+把下面这段直接发给 WorkBuddy，它会下载、解压到技能目录，并接着帮你配置：
+
+> 帮我安装这个 skill：https://github.com/Zhf0826/xuexitong-connector/releases/download/v2.0.0/xuexitong-connector.skill ，装完用 xuexitong-connector 把学习通配置好
+
+也可以手动装（`.skill` 就是一个 zip，解压后得到 `xuexitong-connector/` 目录）：
+
+```bash
+# macOS / Linux
+curl -L -o /tmp/xt.skill https://github.com/Zhf0826/xuexitong-connector/releases/download/v2.0.0/xuexitong-connector.skill
+unzip -o /tmp/xt.skill -d ~/.workbuddy/skills
+```
+
+```powershell
+# Windows
+curl.exe -L "https://github.com/Zhf0826/xuexitong-connector/releases/download/v2.0.0/xuexitong-connector.skill" -o "$env:TEMP\xt.zip"
+Expand-Archive "$env:TEMP\xt.zip" -DestinationPath "$env:USERPROFILE\.workbuddy\skills" -Force
+```
+
+装好后新开一轮对话，说「**用 xuexitong-connector 帮我配置学习通**」即可。
+
 ## 为什么需要它
 
 `Xuexitong-mcp` 本身已经把接口跑通了，但接入 WorkBuddy 的过程中有三处反复踩坑，且现有文档不会同时讲清：
@@ -28,7 +50,7 @@
 - 学习通账号（手机号 + 密码，仅网页端账号体系）
 - 能访问 `*.chaoxing.com`、`*.cldisk.com`
 
-## 安装
+## 配置连接器
 
 ### 一条命令（推荐）
 
