@@ -28,6 +28,18 @@
       "status": "not-run"
     },
     {
+      "id": "happy-03",
+      "kind": "happy",
+      "prompt": "装完这个 skill 一条命令把学习通配好，我不想一步步来",
+      "trigger_expected": true,
+      "pass_criteria": [
+        "直接给出 python scripts/setup.py，而不是让用户手动执行五步",
+        "明确说明最后仍需在自定义连接器里点信任，未谎称全自动",
+        "失败时按 setup.py 的退出提示给出可执行的修复命令"
+      ],
+      "status": "not-run"
+    },
+    {
       "id": "edge-01",
       "kind": "edge",
       "prompt": "连接器里找不到学习通工具，而且登录一直提示未登录，帮我排查",

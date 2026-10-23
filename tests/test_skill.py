@@ -99,7 +99,7 @@ class TestScripts(unittest.TestCase):
             py_compile.compile(str(script), doraise=True)
 
     def test_help_exits_cleanly(self):
-        for name in ("register_mcp.py", "check_env.py"):
+        for name in ("register_mcp.py", "check_env.py", "setup.py", "make_shortcut.py"):
             proc = subprocess.run(
                 [sys.executable, str(ROOT / "scripts" / name), "--help"],
                 capture_output=True, text=True, timeout=60,
@@ -123,6 +123,43 @@ class TestScripts(unittest.TestCase):
     def test_load_missing_config_returns_empty(self):
         reg = load_script("register_mcp.py")
         self.assertEqual(reg.load_json(ROOT / "no-such-file.json"), {})
+
+
+class TestOneClickInstaller(unittest.TestCase):
+    def test_mask_phone(self):
+        setup = load_script("setup.py")
+        masked = setup.mask_phone("13800000000")
+        self.assertNotIn("13800000000", masked)
+        self.assertTrue(masked.startswith("138"))
+        self.assertEqual(setup.mask_phone(""), "")
+
+    def test_default_paths_are_user_scoped(self):
+        setup = load_script("setup.py")
+        self.assertEqual(setup.DEFAULT_MCP.name, "mcp.json")
+        self.assertIn(".workbuddy", str(setup.DEFAULT_MCP))
+        self.assertEqual(setup.DEFAULT_SERVER.name, "xuexitong-mcp")
+
+    def test_installer_documents_manual_step(self):
+        text = (ROOT / "scripts" / "setup.py").read_text(encoding="utf-8")
+        self.assertIn("信任", text, "一键安装必须提示在客户端点信任这一步")
+
+
+class TestShortcut(unittest.TestCase):
+    def test_default_link_name(self):
+        shortcut = load_script("make_shortcut.py")
+        link = shortcut.default_link("学习通")
+        self.assertEqual(link.suffix, ".lnk")
+        self.assertEqual(link.stem, "学习通")
+
+    def test_same_path_normalizes(self):
+        shortcut = load_script("make_shortcut.py")
+        self.assertTrue(shortcut.same_path(str(ROOT), ROOT))
+        self.assertFalse(shortcut.same_path(str(ROOT), ROOT / "other"))
+
+    def test_three_fallbacks_declared(self):
+        text = (ROOT / "scripts" / "make_shortcut.py").read_text(encoding="utf-8")
+        for marker in ("_com_write", "_pywin32_write", "_powershell_write"):
+            self.assertIn(marker, text)
 
 
 class TestSecurity(unittest.TestCase):

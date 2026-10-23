@@ -3,8 +3,11 @@
 [![CI](https://github.com/Zhf0826/xuexitong-connector/actions/workflows/ci.yml/badge.svg)](https://github.com/Zhf0826/xuexitong-connector/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/version-2.0.0-informational.svg)](CHANGELOG.md)
 
 把**超星学习通**接进 WorkBuddy 的 Skill：安装只读 MCP 服务 → 注册为自定义连接器 → 信任启用 → 登录验证，然后用一句话查课表、作业 DDL、考试、章节进度、通知和资料。
+
+安装后可**一条命令**跑完前面五步中的四步，你只需要在客户端点一次「信任」。
 
 不是又一个「学习通自动化脚本」。这里只有**查询**：不签到、不刷课、不答题、不代做作业。
 
@@ -27,7 +30,36 @@
 
 ## 安装
 
-### 1. 装服务端（可编辑安装）
+### 一条命令（推荐）
+
+```bash
+git clone https://github.com/Zhf0826/xuexitong-connector.git
+cd xuexitong-connector
+python scripts/setup.py
+```
+
+脚本会依次完成：检查 Python → 克隆/定位服务端 → 可编辑安装 → 询问手机号与密码 → 写入 `mcp.json` → 9 项体检。跑完只剩一步：
+
+> WorkBuddy 左下角 **+** → **连接器管理** → 右上角 **自定义连接器** → 找到 `xuexitong` → **信任**
+
+信任后新开一轮对话，说「查我的课表」即可验证。
+
+常用变体：
+
+| 场景 | 命令 |
+|---|---|
+| 已手动放好源码 | `python scripts/setup.py --no-clone` |
+| 想先看会改什么 | `python scripts/setup.py --dry-run` |
+| 密码不想落盘到 `config.json` | `python scripts/setup.py --credential-mode env` |
+| 顺手建桌面快捷方式 | `python scripts/setup.py --with-shortcut "D:/学习/cxstudy/cxstudy.exe"` |
+| 卸载 | `python scripts/setup.py --uninstall --purge` |
+
+### 手动模式（脚本失败时的兜底）
+
+<details>
+<summary>点开看五个步骤</summary>
+
+**1. 装服务端（可编辑安装）**
 
 ```bash
 git clone https://github.com/DanMo661/Xuexitong-mcp.git
@@ -41,17 +73,13 @@ python -m pip install -e .
 python -c "import xuexitong_mcp; print(xuexitong_mcp.__file__)"
 ```
 
-### 2. 配凭据（三选一）
+**2. 配凭据**
 
 优先级：`login` 工具参数 > 环境变量 > `config.json`
 
 ```bash
-# 推荐：环境变量写进连接器配置，密码不落盘
-# 或者：仓库根目录放 config.json
 cp config.example.json config.json   # Windows: copy
 ```
-
-`config.json` 内容：
 
 ```json
 {
@@ -60,25 +88,23 @@ cp config.example.json config.json   # Windows: copy
 }
 ```
 
-### 3. 注册连接器
+**3. 注册连接器**
 
 ```bash
 python scripts/register_mcp.py --python "C:/Python312/python.exe" --phone 13800000000
 ```
 
-脚本会备份 `~/.workbuddy/mcp.json`，只合并 `mcpServers.xuexitong` 一项，其他连接器原样保留。
+**4. 信任并启用**
 
-### 4. 信任并启用
+WorkBuddy 左下角 **+** → **连接器管理** → 右上角 **自定义连接器** → `xuexitong` → **信任**。
 
-WorkBuddy 左下角 **+** → **连接器管理** → 右上角 **自定义连接器** → 找到 `xuexitong` → **信任**。然后新开一轮对话。
-
-### 5. 验证
+**5. 体检**
 
 ```bash
 python scripts/check_env.py
 ```
 
-全部 `PASS`（或仅「登录态文件尚未生成」这类正常 WARN）后，在对话里依次调用 `login` → `get_profile` → `get_schedule`。
+</details>
 
 ## 用法示例
 
@@ -109,12 +135,15 @@ xuexitong-connector/
 │   └── evals.json              # 触发/不触发用例
 ├── references/
 │   ├── tools.md                # 16 个工具的参数与输出
-│   └── troubleshooting.md      # 按症状排错
+│   ├── troubleshooting.md      # 按症状排错
+│   └── faq.md                  # 安装、凭据、使用、故障四类问答
 ├── scripts/
-│   ├── register_mcp.py         # 幂等写入/移除 mcp.json 条目
-│   └── check_env.py            # 只读体检：依赖、安装形态、凭据、条目、工具数
+│   ├── setup.py                # 一条命令接入：装、配、写、检
+│   ├── register_mcp.py         # 只重写/移除 mcp.json 条目
+│   ├── check_env.py            # 只读体检：依赖、安装形态、凭据、条目、工具数
+│   └── make_shortcut.py        # Windows 快捷方式：三级回退 + 回读校验
 └── tests/
-    └── test_skill.py           # 17 项仓库自检（零第三方依赖）
+    └── test_skill.py           # 23 项仓库自检（零第三方依赖）
 ```
 
 ## 测试
@@ -123,7 +152,7 @@ xuexitong-connector/
 python -m unittest discover -s tests -v
 ```
 
-17 项检查，全部离线：frontmatter 与目录名一致性、SKILL/README 本地链接是否失效、脚本语法与 `--help` 契约、`build_entry` 与掩码逻辑、凭据文件是否混入仓库、疑似密钥与私人路径扫描、打包元数据完整性。CI 在 Python 3.11 与 3.13 上各跑一遍。
+23 项检查，全部离线：frontmatter 与目录名一致性、SKILL 与 README 本地链接是否失效、四个脚本的语法与 `--help` 契约、`build_entry` 与掩码逻辑、一键安装是否提示人工信任步骤、快捷方式三级回退是否齐全、凭据文件是否混入仓库、疑似密钥与私人路径扫描、打包元数据完整性。CI 在 Python 3.11 与 3.13 上各跑一遍。
 
 ## 安全说明
 
@@ -132,7 +161,7 @@ python -m unittest discover -s tests -v
 - **风控**：学习通对高频请求敏感。不要批量抓取、不要短间隔轮询；`get_homework_deadlines` 与 `get_progress_overview` 会逐课扫描，一次约一分钟。
 - **仅限本人账号**：请勿接入他人账号。
 
-完整边界与报告方式见 [SECURITY.md](SECURITY.md)。
+完整边界与报告方式见 [SECURITY.md](SECURITY.md)。安装、凭据、使用、故障四类问答见 [references/faq.md](references/faq.md)。
 
 ## 已知限制
 

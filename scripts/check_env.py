@@ -180,10 +180,9 @@ def check_mcp_entry(config_path: Path) -> None:
         problems.append("args 应为 -m xuexitong_mcp，实际 {}".format(args))
 
     env = entry.get("env") or {}
-    if env:
-        keys = ", ".join(sorted(env))
-        add(WARN, "连接器 env", "含明文凭据键：{}".format(keys),
-            "如不希望密码落盘，改用仓库根目录的 config.json")
+    if "CHAOXING_PASSWORD" in env:
+        add(WARN, "连接器 env", "含明文密码键 CHAOXING_PASSWORD",
+            "如不希望密码落盘，改用仓库根目录的 config.json 或环境变量注入")
 
     if problems:
         add(FAIL, "连接器配置", "；".join(problems),

@@ -1,184 +1,158 @@
 ---
 name: xuexitong-connector
-version: 1.1.0
+version: 2.0.0
 display_name: 学习通连接器接入助手
 display_name_en: Xuexitong MCP Connector Setup
-description: 把超星学习通以自定义 MCP 连接器接入 WorkBuddy 并完成登录验证，随后用只读工具查询课表、作业截止、考试、章节进度、通知与云盘。当用户说连接学习通、安装学习通 MCP、连接器里没有学习通工具、学习通登录失败、查学习通课表或作业 DDL 时使用。
-description_zh: 把超星学习通以自定义 MCP 连接器接入 WorkBuddy 并完成登录验证，随后用只读工具查询课表、作业截止、考试、章节进度、通知与云盘。当用户说连接学习通、安装学习通 MCP、连接器里没有学习通工具、学习通登录失败、查学习通课表或作业 DDL 时使用。
-description_en: Connect Chaoxing Xuexitong to WorkBuddy as a custom MCP connector, complete login, then run read-only queries for schedule, homework deadlines, exams, chapter progress, notices and cloud drive.
+description: 一条命令把超星学习通接入 WorkBuddy：自动装服务端、配凭据、写连接器、跑自检，并在客户端信任后直接查课表、作业截止、考试、章节进度、通知与云盘。当用户说连接学习通、安装学习通 MCP、一键配置学习通、连接器里没有学习通工具、学习通登录失败、查学习通课表或作业 DDL 时使用。
+description_zh: 一条命令把超星学习通接入 WorkBuddy：自动装服务端、配凭据、写连接器、跑自检，并在客户端信任后直接查课表、作业截止、考试、章节进度、通知与云盘。当用户说连接学习通、安装学习通 MCP、一键配置学习通、连接器里没有学习通工具、学习通登录失败、查学习通课表或作业 DDL 时使用。
+description_en: One-command Xuexitong setup for WorkBuddy that installs the read-only MCP server, stores credentials, registers the connector and self-checks the result, then answers schedule, homework deadline, exam, progress, notice and cloud-drive queries.
 ---
 
 # 学习通连接器接入助手
 
-把一个社区维护的只读 MCP 服务 `Xuexitong-mcp` 接进 WorkBuddy，让「查课表 / 查作业 DDL / 查考试 / 查进度 / 查通知 / 下资料」变成对话里的一条指令。
+安装完这个 Skill，跑**一条命令**，剩下的交给它：查 Python、拉源码、装依赖、存凭据、写连接器配置、自检。你只需要在 WorkBuddy 里点一次「信任」。
 
-## 这个 Skill 解决什么
+## 功能范围
 
-接入这件事本身不难，但有三处容易卡住，且官方文档不会同时讲清：
+一条链路，六步自动化，一步人工：
 
-1. **凭据文件的落点**：服务端按「包目录的上一层 → 包目录」查找 `config.json`。用普通 `pip install .` 装到 site-packages 后，仓库里的 `config.json` 根本不会被读到；必须用可编辑安装 `pip install -e .` 或改用环境变量。
-2. **连接器必须手动信任**：写进 `mcp.json` 只是登记，WorkBuddy 侧还要在「自定义连接器」里点一次「信任」，否则工具列表里永远看不到 `xuexitong`。
-3. **命令要用绝对路径**：桌面客户端的 PATH 与终端不同，`"command": "python"` 经常直接拉不起来。
+| 步骤 | 做什么 | 自动化 |
+|---|---|---|
+| 1 | 检查 Python ≥ 3.10，确认解释器绝对路径 | 自动 |
+| 2 | 定位服务端源码，缺失时 `git clone` 到 `~/.workbuddy/mcp-servers/xuexitong-mcp` | 自动 |
+| 3 | `pip install -e .` 可编辑安装（这是能读到凭据文件的前提） | 自动 |
+| 4 | 交互输入手机号与密码，写入 `config.json` 或 `mcp.json` 的 env | 自动 |
+| 5 | 幂等写入 `mcp.json` 的 `mcpServers.xuexitong`，自动备份、回读校验 | 自动 |
+| 6 | 跑 9 项体检：依赖、安装形态、凭据、登录态、条目、16 个工具 | 自动 |
+| 7 | 在「连接器管理 → 自定义连接器」点**信任** | **人工，无法代劳** |
 
-本 Skill 把这三处固定成脚本 + 检查清单，避免每次重新试错。
+**不做**：签到、刷课、答题、批量爬取、成绩单统计。服务端本身只读。
+
+可选加装：`--with-shortcut` 为本地学习通应用创建桌面快捷方式（.lnk），对应教学视频里「桌面连接器」的做法。
 
 ## 何时用 / 何时不用
 
-**用**：
+**用**：连接学习通 / 装学习通 MCP / 一键配置 / 连接器里没有 `xuexitong` 工具 / 一直提示未登录 / 查课表与作业 DDL / 想给学习通应用做个桌面入口。
 
-- 「帮我把学习通接到 WorkBuddy / 装个学习通 MCP」
-- 「连接器里没有学习通，工具调不到」
-- 「学习通登录失败 / cookie 失效 / 一直提示未登录」
-- 「查一下我这周课表」「我有哪些作业快截止了」「导出课表到日历」
+**不用**：只需要写作业或做 PPT（那是写作与 Office 技能）；学校自有教务系统（接口不通用）；任何自动化签到刷课需求。
 
-**不用**：
+## 前置条件
 
-- 只要一份学习通作业的**内容创作**（写论文、做 PPT）——那是写作/Office 技能的事，本 Skill 只负责取数据。
-- 签到、刷课、答题、批量爬取——服务端明确只读，不提供也不应绕过。
-- 学校自有教务系统（非超星体系）——接口不通用。
+| 项 | 要求 |
+|---|---|
+| 客户端 | WorkBuddy 桌面版，有「自定义连接器」入口 |
+| Python | 3.10+（脚本会自检） |
+| git | 自动克隆源码时需要；没有则手动下载源码 |
+| 账号 | 本人学习通手机号 + 密码（无扫码登录） |
+| 网络 | 能访问 `*.chaoxing.com`、`*.cldisk.com`、`github.com` |
+| 权限 | 全部写入都在用户目录，不需要管理员 |
 
-## 前置条件与环境依赖
+## 一条命令接入
 
-| 项 | 要求 | 说明 |
+```bash
+python scripts/setup.py
+```
+
+交互式跑完，最后打印唯一的人工步骤。常用变体：
+
+```bash
+python scripts/setup.py --phone 13800000000          # 只问密码（getpass 不回显）
+python scripts/setup.py --credential-mode env        # 密码写进 mcp.json 的 env
+python scripts/setup.py --no-clone                   # 已手动放好源码，不联网克隆
+python scripts/setup.py --dry-run                    # 只打印计划，不落盘
+python scripts/setup.py --with-shortcut "D:/学习/cxstudy/cxstudy.exe"   # 顺手建桌面入口
+python scripts/setup.py --uninstall                  # 移除连接器条目
+python scripts/setup.py --uninstall --purge          # 连凭据文件一起删
+```
+
+## 输入与配置项
+
+| 参数 | 默认 | 说明 |
 |---|---|---|
-| 客户端 | WorkBuddy 桌面版 | 需要「连接器管理 → 自定义连接器」入口 |
-| Python | 3.10 及以上 | 服务端 `requires-python >= 3.10` |
-| 依赖包 | `mcp>=1.2.0`、`requests>=2.28`、`pycryptodome>=3.19` | `pip install -e .` 会自动装 |
-| 服务端源码 | `https://github.com/DanMo661/Xuexitong-mcp` | 该包未发布到 PyPI，只能从源码安装 |
-| 账号 | 本人学习通手机号 + 密码 | 仅支持账号密码登录，无扫码 |
-| 网络 | 能访问 `*.chaoxing.com`、`*.cldisk.com` | 校园网/代理异常会表现为登录超时 |
-| 权限 | 无需管理员权限 | 全部写入都在用户目录内 |
+| `--phone` | 空，交互询问 | 学习通登录手机号 |
+| 密码 | 空，`getpass` 交互 | 不接受命令行明文；非交互模式请用 `config.json` 预置 |
+| `--credential-mode` | `config` | `config` 写入仓库根 `config.json`（推荐）；`env` 写入 `mcp.json` 的 env |
+| `--server-dir` | `~/.workbuddy/mcp-servers/xuexitong-mcp` | 服务端源码位置 |
+| `--config` | `~/.workbuddy/mcp.json` | 连接器配置文件 |
+| `--force-credentials` | 关 | 忽略已有凭据，重新输入 |
+| `--yes` / `-y` | 关 | 非交互模式，缺参直接失败而非卡住 |
+| `--dry-run` | 关 | 全流程演练，不改任何文件 |
 
-## 五步接入流程
+凭据优先级：服务端读取时是 `login` 参数 > 环境变量 > `config.json`；本脚本只写后两者，且把手机号一律掩码显示。
 
-### Step 1 安装服务端（可编辑安装）
+## 分步模式（脚本失败时的兜底）
 
 ```bash
+# 1. 装服务端（-e 不可省，否则 config.json 落在 site-packages 读不到）
 git clone https://github.com/DanMo661/Xuexitong-mcp.git
-cd Xuexitong-mcp
-python -m pip install -e .
-```
+cd Xuexitong-mcp && python -m pip install -e .
 
-`-e` 不是可选项。可编辑安装让包目录仍指向仓库，`config.json` 与 `session_cookies.json` 才会落在你能看到、能改、能加进 `.gitignore` 的地方。
+# 2. 凭据
+cp config.example.json config.json   # 填 phone / password
 
-验证：`python -c "import xuexitong_mcp; print(xuexitong_mcp.__file__)"` 应输出**仓库内**的路径，而不是 site-packages。
+# 3. 写连接器
+python scripts/register_mcp.py --python "C:/Python312/python.exe"
 
-### Step 2 配置凭据
-
-三种来源，优先级从高到低：
-
-1. 调用 `login` 工具时直接传 `phone` / `password`（最省事，但密码会进对话记录）
-2. 环境变量 `CHAOXING_PHONE` / `CHAOXING_PASSWORD`（推荐，密码不落盘）
-3. 仓库根目录 `config.json`（`config.example.json` 复制后填写）
-
-移动端 passport 域名已下线，只能用网页版账号密码。
-
-### Step 3 写入连接器配置
-
-以下脚本都在**本 Skill 目录**下执行（`cd` 到 SKILL.md 所在目录）。
-
-```bash
-python scripts/register_mcp.py --python "C:/path/to/python.exe" --phone 13800000000
-```
-
-脚本做的事：备份现有 `mcp.json` → 只合并 `mcpServers.xuexitong` 一项 → 保留其他连接器不动 → 回显最终条目。常用开关：
-
-```bash
-python scripts/register_mcp.py --dry-run          # 只看将写入什么
-python scripts/register_mcp.py --remove           # 卸载该连接器
-python scripts/register_mcp.py --config "D:/tmp/mcp.json"   # 指定配置文件
-```
-
-`--python` 请传绝对路径；不传则用当前解释器。密码建议不加 `--password`，改用 `--phone` + 环境变量或 `config.json`。
-
-### Step 4 在客户端信任连接器（人工，无法脚本化）
-
-WorkBuddy 左下角 **+** 菜单 → **连接器管理** → 右上角 **自定义连接器** → 找到 `xuexitong` → 点 **信任**。
-
-信任后需要新开一轮对话（或重连）才会加载工具。判断成功：工具列表出现 `mcp__xuexitong__*` 系列。
-
-### Step 5 登录并验证
-
-按顺序调用，任一步失败就转排错：
-
-1. `login`（不传参数时自动读取环境变量或 `config.json`）
-2. `get_profile` —— 应返回姓名、学校、学年学期
-3. `get_schedule` —— 应返回本周课程
-
-全链路体检（不改任何文件、不发网络请求）：
-
-```bash
+# 4. 体检
 python scripts/check_env.py
 ```
 
-输出逐项 `PASS / WARN / FAIL`：Python 版本、四个依赖、包安装位置、凭据来源、登录态文件、`mcp.json` 条目与命令可执行性、工具注册数量。
+## 可选：桌面入口
 
-## 常用查询配方
+视频里那条「桌面学习通连接器」，本质是 `.lnk` 指向真实 exe 并固定工作目录：
 
-| 需求 | 调用 | 备注 |
+```bash
+python scripts/make_shortcut.py --target "D:/学习/cxstudy/cxstudy.exe" --name 学习通
+python scripts/make_shortcut.py --verify-only --link "%USERPROFILE%\Desktop\学习通.lnk"
+```
+
+三级回退，任一条成功即返回：ctypes 直连 COM（无第三方依赖）→ pywin32 → PowerShell。每次写完都会**回读目标**比对，避免出现「图标对、目标错」的快捷方式。中文路径通过 `-EncodedCommand` 传递，不会变成乱码。
+
+## 错误处理
+
+脚本按「先取证、再给命令」的方式失败，不猜测：
+
+| 症状 | 脚本行为 | 你要做的 |
 |---|---|---|
-| 这周课表 | `get_schedule` 传 `week` | 不传 `week` 返回全学期汇总 |
-| 导出日历 | `export_schedule_ics` 传 `save_dir` | 用学校真实节次时间，含课前 30 分钟提醒 |
-| 作业 DDL 看板 | `get_homework_deadlines` | 逐课查详情，约 1 分钟，别放进循环 |
-| 某课作业清单 | `list_homework` 传 `course` | `course` 是课名关键词，建议先 `list_courses` |
-| 全课程进度 | `get_progress_overview` | 同样逐课扫描，较慢 |
-| 找资料 | `find_materials` 传 `course` + `keyword` | 递归搜索，免逐层翻文件夹 |
-| 未读通知 | `list_notices` 传 `unread_only` | 关键词过滤在本地做，范围约最近 100 条 |
+| Python < 3.10 | 直接退出并打印当前版本 | 换 3.10+ 解释器重跑 |
+| `git` 不存在 / 克隆失败 | 打印完整命令与 stderr 末尾 | 手动下载源码到 `--server-dir`，加 `--no-clone` 重跑 |
+| pip 安装失败 | 打印可复制的 pip 命令 | 检查网络或代理后手动执行 |
+| 缺手机号 / 密码 | 交互补问；`-y` 模式下直接失败 | 补 `--phone` 或在 `config.json` 预置 |
+| `mcp.json` 不是合法 JSON | 中止，不覆盖、不「尽力修复」 | 修好 JSON 再跑 |
+| 写入后回读不一致 | 报错并保留备份 | 用备份还原后排查磁盘/权限 |
+| 自检有 FAIL | 打印 FAIL 明细与修复建议 | 按提示处理后重跑 |
+| 自检有 WARN | 继续，但提示具体项 | 多数可忽略，如「登录态未生成」 |
 
-## 输入输出约定
+**自检常见项**：`config.json 缺失` → 重新跑 Step 4；`普通安装` → 改用 `-e`；`command 不存在` → 用 `--python` 指定绝对路径；`工具数 < 16` → 升级服务端。
 
-**输入**
-
-- 凭据：手机号 + 密码，三选一来源（见 Step 2）。
-- 课名：模糊关键词，精确同名优先，否则取第一个命中；课名有歧义时先 `list_courses` 拿全名。
-- 路径：`save_dir` 必须是**已存在的绝对目录**；服务端只做文件名安全化，不创建目录。
-- 范围：`horizon_days` 默认 90 天；`week` 为 1 基周次。
-
-**输出**
-
-- 所有查询类工具返回 **Markdown 纯文本**（人可读，非 JSON），直接在对话里引用即可。
-- `download_material` / `export_schedule_ics` 会落盘，返回本地文件路径。
-- 失败统一返回单行短消息，如「登录失败：密码错误」「未登录」——据此定位问题，不要重试超过一次。
+完整排查表见 [references/troubleshooting.md](references/troubleshooting.md)，按症状查的问答见 [references/faq.md](references/faq.md)。
 
 ## 校验标准
 
-一次接入算成功，需同时满足：
-
-1. `check_env.py` 无 `FAIL`。
-2. `get_profile` 返回真实姓名与学校。
-3. `get_schedule` 返回的课程与你本学期实际选课一致。
-4. 重启客户端后工具仍在（证明配置持久化，不是内存态）。
-5. 若要改动本仓库：`python -m unittest discover -s tests -v` 全绿。
-
-## 排错路由
-
-| 症状 | 先去这里 |
-|---|---|
-| 工具列表没有 `xuexitong` | Step 4 信任；`register_mcp.py --dry-run` 看条目 |
-| 进程起不来 / 连接器红色 | 命令是否绝对路径；`--python` 指向的解释器能否 `import xuexitong_mcp` |
-| 一直「未登录」 | `config.json` 是否在仓库根目录；是否用了非可编辑安装 |
-| 「登录失败：密码错误」 | 密码近期是否改过；是否需要短信验证（风控） |
-| 结果为空 / 课名找不到 | 先 `list_courses`，再传全名 |
-| 请求超时 | 网络/代理；换网络重试一次，别连续重试 |
-
-详细症状对照见 [references/troubleshooting.md](references/troubleshooting.md)。
+1. `python scripts/check_env.py` 无 `FAIL`。
+2. `login` 返回「登录成功：你的名字」。
+3. `get_profile` 返回真实姓名与学校。
+4. `get_schedule` 与本学期实际选课一致。
+5. 重启客户端后工具仍在。
 
 ## 安全边界
 
-- **只读**：服务端全部为查询语义，不提交表单。不做签到、刷课、答题，不替代本人完成学习任务。
-- **凭据不落库**：`config.json`、`session_cookies.json` 必须留在 `.gitignore` 里；写进 `mcp.json` 的密码等同于明文，优先用环境变量或 `config.json`。
-- **风控**：学习通对高频请求敏感。不批量抓取、不做短间隔轮询；慢接口（DDL 看板、进度总览）一天几次即可。
-- **仅限本人账号**：不要把他人账号接入，也不要多人共用一个会话文件。
-- **接口非官方**：协议基于网页端逆向，学校或平台改版后可能失效，失效时升级服务端而非改脚本。
+- **只读**：所有查询工具均为 GET 语义，不提交表单；不提供签到、刷课、答题。
+- **凭据**：`config.json` 与 `session_cookies.json` 已在 `.gitignore` 中；POSIX 下写入后 chmod `0600`；密码不从命令行读取，日志一律掩码。
+- **风控**：`get_homework_deadlines` 与 `get_progress_overview` 逐课扫描，一次约一分钟，别放进循环或短间隔定时任务。
+- **仅限本人账号**，不共用会话文件。
+- **接口非官方**：平台改版可能失效，此时升级服务端版本，不要改本仓库脚本绕过。
 
 ## 资源路由
 
 | 文件 | 何时读 |
 |---|---|
-| `scripts/register_mcp.py` | 写入/更新/移除 `mcp.json` 条目 |
-| `scripts/check_env.py` | 接入后体检、排错第一步 |
-| `references/tools.md` | 查 16 个工具的参数、输出形态与耗时 |
-| `references/troubleshooting.md` | 按症状查原因与修法 |
-| `SECURITY.md` | 需要说明凭据落盘位置、信任边界或报告安全问题时 |
-| `tests/test_skill.py` | 改动本仓库后跑 `python -m unittest discover -s tests -v` 自检 |
-| `README.md` | 面向 GitHub 读者的安装说明 |
+| `scripts/setup.py` | 一条命令接入（主路径） |
+| `scripts/register_mcp.py` | 只重写/移除连接器条目 |
+| `scripts/check_env.py` | 体检与排错第一步 |
+| `scripts/make_shortcut.py` | 需要桌面快捷方式时 |
+| `references/tools.md` | 16 个工具的参数、耗时、输出形态 |
+| `references/troubleshooting.md` | 按症状排查 |
+| `references/faq.md` | 「为什么必须信任」「密码存哪」「会不会封号」这类问题 |
+| `SECURITY.md` | 信任边界与凭据落盘风险 |
+| `tests/test_skill.py` | 改动仓库后跑 `python -m unittest discover -s tests -v` |
