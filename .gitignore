@@ -1,0 +1,22 @@
+# 凭据与登录态：绝不入库
+config.json
+session_cookies.json
+*.cookie
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 打包产物
+dist/
+*.skill
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

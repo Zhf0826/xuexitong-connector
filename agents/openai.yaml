@@ -1,0 +1,7 @@
+interface:
+  display_name: "学习通连接器接入助手"
+  short_description: "接入并排错学习通 MCP 连接器，查课表与作业 DDL"
+  default_prompt: "Use $xuexitong-connector to connect Xuexitong to WorkBuddy as a trusted MCP connector, then verify login and query this week's schedule."
+
+policy:
+  allow_implicit_invocation: true

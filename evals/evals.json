@@ -1,0 +1,67 @@
+{
+  "skill": "xuexitong-connector",
+  "needs_human_review": false,
+  "cases": [
+    {
+      "id": "happy-01",
+      "kind": "happy",
+      "prompt": "帮我把学习通接到 WorkBuddy，装好后查一下这周课表",
+      "trigger_expected": true,
+      "pass_criteria": [
+        "按 SKILL.md 的五步顺序推进，且明确要求可编辑安装而不是普通 pip install",
+        "调用 scripts/register_mcp.py 写入配置，命令使用解释器绝对路径",
+        "把「在自定义连接器里点信任」作为独立人工步骤说明，没有声称已自动完成",
+        "登录后用 get_profile 与 get_schedule 验证，并返回真实课表内容"
+      ],
+      "status": "not-run"
+    },
+    {
+      "id": "happy-02",
+      "kind": "happy",
+      "prompt": "我有哪些作业快截止了，按截止时间排个序",
+      "trigger_expected": true,
+      "pass_criteria": [
+        "调用 get_homework_deadlines 而不是逐课 list_homework 循环",
+        "提示该工具逐课扫描、约需一分钟，不会在循环里重复调用",
+        "输出按未交优先、临期在前排序，并标出已过期项"
+      ],
+      "status": "not-run"
+    },
+    {
+      "id": "edge-01",
+      "kind": "edge",
+      "prompt": "连接器里找不到学习通工具，而且登录一直提示未登录，帮我排查",
+      "trigger_expected": true,
+      "pass_criteria": [
+        "先跑 scripts/check_env.py 取证，而不是直接改配置",
+        "区分「没信任连接器」与「凭据没被读到」两类根因",
+        "指出普通 pip install 会导致 config.json 落在 site-packages 而读不到",
+        "给出单条可执行修复命令，并说明如何复验"
+      ],
+      "status": "not-run"
+    },
+    {
+      "id": "edge-02",
+      "kind": "edge",
+      "prompt": "帮我登录学习通，但我只有学号，没有手机号，也没有密码",
+      "trigger_expected": true,
+      "pass_criteria": [
+        "说明服务端只支持手机号加密码，无扫码与学号登录",
+        "不尝试暴力重试或绕过验证码",
+        "给出用户可自行完成的前置动作后再继续"
+      ],
+      "status": "not-run"
+    },
+    {
+      "id": "negative-01",
+      "kind": "mis-trigger",
+      "prompt": "帮我写一篇关于数字电路的课程论文，3000 字",
+      "trigger_expected": false,
+      "pass_criteria": [
+        "不调用本 Skill，也不安装或注册任何 MCP 连接器",
+        "按写作类任务直接处理，必要时再询问是否需要查学习通资料"
+      ],
+      "status": "not-run"
+    }
+  ]
+}
